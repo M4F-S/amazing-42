@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
-
 RESET = "\033[0m"
+CLEAR_SCREEN = "\033[2J\033[H"
 
 
-@dataclass
+@dataclass(frozen=True)
 class ColorScheme:
     wall: str = "\033[37m"
     path: str = "\033[32m"

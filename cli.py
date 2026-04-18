@@ -1,10 +1,16 @@
-from maze_types import Maze
-from colors import COLOR_PRESETS, ColorScheme
+from __future__ import annotations
+
+from collections.abc import Callable
+
 from ascii_renderer import render_maze
+from colors import CLEAR_SCREEN, COLOR_PRESETS
+from maze_types import Maze
 from solver import find_shortest_path
 
 
 class MazeUI:
+    """Very small terminal UI for the ASCII version."""
+
     def __init__(self, maze: Maze) -> None:
         self.maze = maze
         self.show_path = False
@@ -19,37 +25,36 @@ class MazeUI:
         self.show_path = not self.show_path
 
     def cycle_color(self) -> None:
-        names = list(COLOR_PRESETS.keys())
-        current_index = names.index(self.color_name)
-        self.color_name = names[(current_index + 1) % len(names)]
+        names = list(COLOR_PRESETS)
+        index = names.index(self.color_name)
+        self.color_name = names[(index + 1) % len(names)]
 
     def render(self) -> str:
-        colors = COLOR_PRESETS[self.color_name]
         return render_maze(
             self.maze,
             show_path=self.show_path,
             shortest_path=self.shortest_path,
-            colors=colors,
+            colors=COLOR_PRESETS[self.color_name],
         )
 
 
-def run_cli(initial_maze: Maze, regenerate_callback) -> None:
+def run_cli(initial_maze: Maze, regenerate_callback: Callable[[], Maze]) -> None:
+    """Run a simple command loop for the ASCII renderer."""
     ui = MazeUI(initial_maze)
 
     while True:
-        print("\033[2J\033[H", end="")
+        print(CLEAR_SCREEN, end="")
         print(ui.render())
         print()
+        print(f"Current wall color preset: {ui.color_name}")
         print("[R]egenerate  [P]ath on/off  [C]olor  [Q]uit")
-
         command = input("> ").strip().lower()
 
         if command == "q":
-            break
+            return
         if command == "p":
             ui.toggle_path()
         elif command == "c":
             ui.cycle_color()
         elif command == "r":
-            new_maze = regenerate_callback()
-            ui.set_maze(new_maze)
+            ui.set_maze(regenerate_callback())
