@@ -100,9 +100,9 @@ def validate_config(config: dict) -> None:
     if perfect_val not in ("true", "false"):
         raise ConfigError("PERFECT must be 'True' or 'False'.")
 
-    # OUTPUTFILE must not be empty
-    if not config["OUTPUTFILE"].strip():
-        raise ConfigError("OUTPUTFILE must not be empty.")
+    # OUTPUT_FILE must not be empty
+    if not config["OUTPUT_FILE"].strip():
+        raise ConfigError("OUTPUT_FILE must not be empty.")
 
 
 def _parse_coords(value: str, key_name: str) -> tuple[int, int]:
