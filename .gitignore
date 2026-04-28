@@ -22,6 +22,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Maze run artefact
+maze.txt
+
 # Python build artefacts
 build/
 dist/

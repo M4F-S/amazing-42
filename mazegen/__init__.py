@@ -1,20 +1,7 @@
-"""mazegen - reusable maze generator for the amazing-42 project.
-
-Public API:
-
-    from mazegen import MazeGenerator
-
-    gen = MazeGenerator(width=20, height=20, seed=42, perfect=True)
-    gen.generate(entry=(0, 0), exit_=(19, 19))
-    path = gen.solve(entry=(0, 0), exit_=(19, 19))
-    print(gen.to_hex_string())
-
-The wall-bit constants (``NORTH``, ``EAST``, ``SOUTH``, ``WEST``) and
-the pattern constants are also re-exported for callers that want to
-inspect the grid directly.
-"""
+"""Reusable maze generator. See README.md for usage."""
 
 from mazegen.generator import (
+    Cell,
     DIRECTIONS,
     EAST,
     MazeGenerator,
@@ -26,9 +13,10 @@ from mazegen.generator import (
     WEST,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
+    "Cell",
     "DIRECTIONS",
     "EAST",
     "MazeGenerator",

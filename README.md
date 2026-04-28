@@ -81,11 +81,11 @@ non-perfect maze plus the `42` stencil walls off the exit).
 
 ## What's reusable, and how
 
-The maze generator logic is entirely decoupled from the UI and solving layers, packaged as a standalone, pip-installable Python Wheel named `mazegen`. The wheel (`mazegen-1.0.0-py3-none-any.whl`) is checked in at the repo root.
+The maze generator is decoupled from the UI and solving layers and shipped as a standalone, pip-installable Python wheel named `mazegen`. The wheel (`mazegen-1.0.1-py3-none-any.whl`) and its source tarball are checked in at the repo root, and `pyproject.toml` lets a grader rebuild them from source with `python -m build`.
 
 **Installation**:
 ```bash
-pip install mazegen-1.0.0-py3-none-any.whl
+pip install mazegen-1.0.1-py3-none-any.whl
 ```
 
 **Usage**:
@@ -112,12 +112,27 @@ as a thin re-export shim, so existing imports of the form
 `from maze_generator import MazeGenerator` keep working unchanged.
 
 ## Team & Process
+
 * **Roles**:
-  * **Student A (<login1>)**: Implemented the `mazegen` package, recursive backtracker, `3x3` open-space prevention, perfect/imperfect generation logic, and the `42` stencil mechanics.
-  * **Student B (<login2>)**: Implemented configuration parsing, mathematical graph validations, solving (BFS shortest path), file I/O formatting, and the ASCII terminal UI.
-* **Planning**: We agreed early on a shared data contract (`maze_types.py` and the `Cell` dataclasses). This decoupled state representation from algorithms and UI, allowing us to work extensively in parallel.
-* **Retrospective**: Defining the API contract early prevented merge conflicts entirely. Isolating the generator cleanly behind `gen.to_cells()` empowered Student A to package the generator as an independent, pip-installable Wheel without including any UI bloated dependencies.
+  * **Student A (mfathy)**: `mazegen` package — DFS backtracker, BFS solver, the `42` stencil, no-3x3-open-area enforcement, hex export, packaging (wheel + sdist).
+  * **Student B (klavashc)**: Configuration parser, project orchestration in `a_maze_ing.py`, structural validators, file writer, ASCII renderer, interactive CLI, end-to-end test.
+* **Planning**: We agreed up front on a shared data contract (the `Cell` dataclass, now living inside `mazegen` and re-exported from `maze_types.py`). That contract decoupled the generator from the UI/IO layers and let us work in parallel without merge conflicts.
+* **What worked**: Splitting the package boundary on day one. The wheel built and installed cleanly, and the partner's modules consumed `gen.to_cells()` from the start.
+* **What we'd improve**: Earlier integration testing — a couple of indentation issues in the validator/solver only surfaced when we wired everything together, not during unit work.
 
 ## Resources
+
 * [Maze Generation Algorithms (Wikipedia)](https://en.wikipedia.org/wiki/Maze_generation_algorithm)
-* [Jamis Buck: Recursive Backtracking](https://weblog.jamisbuck.org/2010/12/27/maze-generation-recursive-backtracking)
+* [Jamis Buck — Recursive Backtracking](https://weblog.jamisbuck.org/2010/12/27/maze-generation-recursive-backtracking)
+* [Think Labyrinth — algorithm reference](http://www.astrolog.org/labyrnth/algrithm.htm)
+* [Python Packaging User Guide](https://packaging.python.org/en/latest/) — used to build the `mazegen` wheel.
+
+### How AI was used
+
+We used Claude and Perplexity as review and audit assistants:
+
+* Cross-checking subject requirements against the codebase and flagging gaps (missing wheel artefacts, README sections, unused imports, missing input validation).
+* Code-review passes on the generator and the partner modules — catching indentation bugs, an east-only loop bias, and a quadratic memory pattern in BFS.
+* Drafting the structure (not the content) of this README and of the package's docstrings.
+
+All algorithmic choices, the bitmask wall encoding, the `42` stencil layout, the package structure, and the actual implementation were written and reviewed by us. AI-suggested code was hand-verified before commit; nothing landed unread.
