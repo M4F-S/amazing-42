@@ -19,6 +19,8 @@ import random
 import sys
 from collections import deque
 
+from maze_types import Cell
+
 NORTH: int = 1
 EAST: int = 2
 SOUTH: int = 4
@@ -225,6 +227,30 @@ class MazeGenerator:
         for row in self.grid:
             lines.append("".join(format(cell, "x").upper() for cell in row))
         return "\n".join(lines)
+
+    def to_cells(self) -> list[list[Cell]]:
+        """Convert the internal bitmask grid to a 2D list of Cell objects.
+
+        Returns:
+            A list of lists of `Cell` instances mapping out the open and closed
+            walls, tracking the `42` stencil where appropriate.
+        """
+        cells: list[list[Cell]] = []
+        for y in range(self.height):
+            row_cells: list[Cell] = []
+            for x in range(self.width):
+                val = self.grid[y][x]
+                row_cells.append(
+                    Cell(
+                        north=bool(val & NORTH),
+                        east=bool(val & EAST),
+                        south=bool(val & SOUTH),
+                        west=bool(val & WEST),
+                        is_42=(x, y) in self._solid,
+                    )
+                )
+            cells.append(row_cells)
+        return cells
 
     def export_to_file(
         self,
