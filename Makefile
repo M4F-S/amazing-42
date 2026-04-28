@@ -9,7 +9,7 @@ MYPY_FLAGS = --warn-return-any --warn-unused-ignores \
              --ignore-missing-imports --disallow-untyped-defs \
              --check-untyped-defs
 
-.PHONY: install run debug build lint lint-strict clean
+.PHONY: install run debug build lint lint-strict test clean
 
 install: $(VENV)
 	$(BIN)/pip install --quiet --upgrade pip
@@ -38,6 +38,9 @@ lint-strict: install
 	$(BIN)/pip install --quiet flake8 mypy
 	$(BIN)/flake8 .
 	$(BIN)/mypy . --strict
+
+test: install
+	$(BIN)/python tester/run_all.py
 
 clean:
 	rm -rf $(VENV) build dist *.egg-info
