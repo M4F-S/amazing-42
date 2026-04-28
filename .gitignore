@@ -21,3 +21,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Python build artefacts
+build/
+dist/
+*.egg-info/
+
+# Test/type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
