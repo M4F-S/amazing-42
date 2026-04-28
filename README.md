@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by <login1>, <login2>.*
+*This project has been created as part of the 42 curriculum by mfathy, klavashc.*
 
 ## Description
 **A-maze-ing** is a highly customizable Python-based maze generator and solver. It produces perfect or imperfect mazes, safely embeds a rigid "42" stencil in the center (when the grid allows), and visualizes the generated labyrinth and its shortest path using a lightweight ASCII terminal UI.
