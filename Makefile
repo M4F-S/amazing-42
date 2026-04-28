@@ -1,35 +1,47 @@
-PYTHON      = python3
-MAIN        = a_maze_ing.py
-CONFIG      = config.txt
-PIP         = pip3
+PYTHON  = python3
+VENV    = .venv
+BIN     = $(VENV)/bin
+MAIN    = a_maze_ing.py
+CONFIG  = config.txt
+WHEEL   = mazegen-1.0.1-py3-none-any.whl
 
-MYPY_FLAGS  = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+MYPY_FLAGS = --warn-return-any --warn-unused-ignores \
+             --ignore-missing-imports --disallow-untyped-defs \
+             --check-untyped-defs
 
-.PHONY: install run build debug clean lint lint-strict
+.PHONY: install run debug build lint lint-strict clean
 
-install:
-	$(PIP) install -r requirements.txt
+install: $(VENV)
+	$(BIN)/pip install --quiet --upgrade pip
+	$(BIN)/pip install --quiet -r requirements.txt
+	@if [ -f $(WHEEL) ]; then $(BIN)/pip install --quiet --force-reinstall $(WHEEL); fi
 
-build:
-	$(PYTHON) -m build
+$(VENV):
+	$(PYTHON) -m venv $(VENV)
 
-run:
-	$(PYTHON) $(MAIN) $(CONFIG)
+run: install
+	$(BIN)/python $(MAIN) $(CONFIG)
 
-debug:
-	$(PYTHON) -m pdb $(MAIN) $(CONFIG)
+debug: install
+	$(BIN)/python -m pdb $(MAIN) $(CONFIG)
 
-lint:
-	flake8 .
-	mypy . $(MYPY_FLAGS)
+build: install
+	$(BIN)/pip install --quiet build
+	$(BIN)/python -m build
 
-lint-strict:
-	flake8 .
-	mypy . --strict
+lint: install
+	$(BIN)/pip install --quiet flake8 mypy
+	$(BIN)/flake8 .
+	$(BIN)/mypy . $(MYPY_FLAGS)
+
+lint-strict: install
+	$(BIN)/pip install --quiet flake8 mypy
+	$(BIN)/flake8 .
+	$(BIN)/mypy . --strict
 
 clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".coverage" -exec rm -rf {} + 2>/dev/null || true
+	rm -rf $(VENV) build dist *.egg-info
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name .mypy_cache -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
+	rm -f maze.txt

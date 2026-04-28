@@ -1,4 +1,4 @@
+# Build/lint tools used by the Makefile. Runtime has no third-party deps.
 build
 flake8
 mypy
-pytest

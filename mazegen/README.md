@@ -1,8 +1,8 @@
 # mazegen
 
-Reusable maze generator: randomised DFS backtracker, BFS solver, optional
-loops, and an embedded "42" stencil. Built for the 42 *amazing* project.
-Pure stdlib, no third-party dependencies.
+Randomised recursive backtracker maze generator with an embedded
+"42" stencil and a BFS shortest-path solver. Built for the 42
+*A-Maze-ing* project.
 
 ## Install
 
@@ -19,50 +19,42 @@ gen = MazeGenerator(width=20, height=15, seed=42, perfect=True)
 gen.generate(entry=(0, 0), exit_=(19, 14))
 path = gen.solve(entry=(0, 0), exit_=(19, 14))
 
+# Subject hex format, one row per line:
 print(gen.to_hex_string())
+
+# Or the full output file (hex grid + entry + exit + path):
 gen.export_to_file("maze.txt", entry=(0, 0), exit_=(19, 14), path=path)
+
+# Direct grid access (4-bit ints; bits NORTH=1, EAST=2, SOUTH=4, WEST=8):
+cell = gen.grid[0][0]
+print(bool(cell & 2))   # east wall closed?
 ```
 
 ## Constructor parameters
 
-| name | type | default | meaning |
-|---|---|---|---|
-| `width` | `int` | required | width in cells, >= 2 |
-| `height` | `int` | required | height in cells, >= 2 |
-| `seed` | `int \| None` | random | reproducible PRNG seed |
-| `perfect` | `bool` | `True` | exactly one path between any two cells |
+| Name      | Type             | Default | Meaning                                  |
+|-----------|------------------|---------|------------------------------------------|
+| `width`   | `int`            | -       | cells, >= 2                              |
+| `height`  | `int`            | -       | cells, >= 2                              |
+| `seed`    | `int` or `None`  | random  | reproducible PRNG seed                   |
+| `perfect` | `bool`           | `True`  | one path between any two non-`42` cells  |
 
-## Accessing the structure
+## Public API
 
-After `generate()`, the maze is exposed as `gen.grid` — a `list[list[int]]`
-of 4-bit wall masks (`NORTH=1`, `EAST=2`, `SOUTH=4`, `WEST=8`; bit set =
-wall closed). For named-attribute access:
+| Method                                     | Returns                |
+|--------------------------------------------|------------------------|
+| `generate(entry, exit_)`                   | `None` (mutates grid)  |
+| `solve(entry, exit_)`                      | `list[str]` of N/E/S/W |
+| `to_hex_string()`                          | `str`                  |
+| `export_to_file(filename, entry, exit_, path)` | `None`             |
 
-```python
-cells = gen.to_cells()       # list[list[Cell]]
-cells[0][0].north            # True if the wall is closed
-cells[0][0].is_42            # True if the cell belongs to the '42' stencil
-```
+## Wall encoding
 
-Other public attributes: `gen.entry`, `gen.exit_`, `gen.seed`, `gen.has_42`.
+| bit | wall  |
+|-----|-------|
+| 0   | NORTH |
+| 1   | EAST  |
+| 2   | SOUTH |
+| 3   | WEST  |
 
-## Solving
-
-```python
-path = gen.solve(entry=(0, 0), exit_=(19, 14))
-# ['E', 'S', 'E', ...] — shortest path letters
-# []                   — entry == exit_
-# None                 — no path exists
-```
-
-## Output file
-
-`export_to_file()` writes the subject-mandated layout: hex grid one row per
-line, blank line, `entry_x,entry_y`, `exit_x,exit_y`, the path string,
-trailing newline.
-
-## Reproducibility
-
-Same `(seed, width, height, perfect, entry, exit_)` always produces the
-same maze. The seed actually used is stored on `gen.seed` (handy when you
-called the constructor with `seed=None`).
+A bit set to `1` means the wall is closed.

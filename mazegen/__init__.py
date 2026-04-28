@@ -1,12 +1,11 @@
-"""Reusable maze generator. See README.md for usage."""
+"""mazegen: reusable maze generator with an embedded '42' stencil."""
 
 from mazegen.generator import (
-    Cell,
-    DIRECTIONS,
+    DIRS,
     EAST,
     MazeGenerator,
     NORTH,
-    PATTERN_42,
+    PATTERN,
     PATTERN_H,
     PATTERN_W,
     SOUTH,
@@ -14,14 +13,12 @@ from mazegen.generator import (
 )
 
 __version__ = "1.0.1"
-
 __all__ = [
-    "Cell",
-    "DIRECTIONS",
+    "DIRS",
     "EAST",
     "MazeGenerator",
     "NORTH",
-    "PATTERN_42",
+    "PATTERN",
     "PATTERN_H",
     "PATTERN_W",
     "SOUTH",

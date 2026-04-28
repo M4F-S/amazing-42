@@ -1,37 +1,18 @@
-# Byte-compiled files
 __pycache__/
 *.py[cod]
-*$py.class
 
-# Virtual environments
-.venv
+.venv/
 venv/
-env/
-ENV/
 
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Maze run artefact
-maze.txt
-
-# Python build artefacts
 build/
 dist/
 *.egg-info/
 
-# Test/type-check caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.coverage
+
+.DS_Store
+*.swp
+*.log
+maze.txt

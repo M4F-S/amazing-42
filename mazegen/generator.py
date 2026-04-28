@@ -1,73 +1,44 @@
-"""Maze generator: DFS backtracker, BFS solver, hex export, '42' stencil."""
-
-from __future__ import annotations
+"""Maze generator: randomised recursive backtracker with a '42' stencil."""
 
 import random
 import sys
 from collections import deque
-from dataclasses import dataclass
 
+NORTH, EAST, SOUTH, WEST = 1, 2, 4, 8
 
-# Wall bits per cell. A bit set to 1 means the wall is closed.
-NORTH = 1
-EAST = 2
-SOUTH = 4
-WEST = 8
-
-# (dx, dy, my-side wall, neighbour-side wall)
-DIRECTIONS: list[tuple[int, int, int, int]] = [
+# (dx, dy, my_wall_bit, neighbour_wall_bit)
+DIRS = [
     (0, -1, NORTH, SOUTH),
     (1, 0, EAST, WEST),
     (0, 1, SOUTH, NORTH),
     (-1, 0, WEST, EAST),
 ]
+LETTER = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
 
-
-_DIGIT_4: list[list[int]] = [
+_FOUR = [
     [1, 0, 1, 0],
     [1, 0, 1, 0],
     [1, 1, 1, 1],
     [0, 0, 1, 0],
     [0, 0, 1, 0],
 ]
-
-_DIGIT_2: list[list[int]] = [
+_TWO = [
     [1, 1, 1, 0],
     [0, 0, 1, 0],
     [1, 1, 1, 0],
     [1, 0, 0, 0],
     [1, 1, 1, 0],
 ]
-
-PATTERN_W = 9
-PATTERN_H = 5
-
-
-def _build_pattern() -> list[list[int]]:
-    pat = [[0] * PATTERN_W for _ in range(PATTERN_H)]
-    for r in range(PATTERN_H):
-        for c in range(4):
-            pat[r][c] = _DIGIT_4[r][c]
-            pat[r][5 + c] = _DIGIT_2[r][c]
-    return pat
-
-
-PATTERN_42: list[list[int]] = _build_pattern()
-
-
-@dataclass(frozen=True)
-class Cell:
-    """One maze cell. A wall field is True when the wall is closed."""
-
-    north: bool
-    east: bool
-    south: bool
-    west: bool
-    is_42: bool = False
+PATTERN_W, PATTERN_H = 9, 5
+PATTERN = [
+    [_FOUR[r][c] if c < 4 else _TWO[r][c - 5] if c > 4 else 0
+     for c in range(PATTERN_W)]
+    for r in range(PATTERN_H)
+]
 
 
 class MazeGenerator:
-    """DFS backtracker with optional loops and a '42' stencil."""
+    """Build a maze with DFS, embed a '42' stencil, BFS for shortest path."""
 
     def __init__(
         self,
@@ -77,92 +48,74 @@ class MazeGenerator:
         perfect: bool = True,
     ) -> None:
         if width < 2 or height < 2:
-            raise ValueError(
-                f"Maze must be at least 2x2, got {width}x{height}."
-            )
-
+            raise ValueError(f"maze too small: {width}x{height}")
         self.width = width
         self.height = height
-        self.seed = (
-            seed if seed is not None else random.randint(0, 2**31 - 1)
-        )
+        self.seed = seed if seed is not None else random.randint(0, 2**31 - 1)
         self.perfect = perfect
         self.has_42 = False
-
-        # Start with every wall closed (15 = N|E|S|W).
-        self.grid: list[list[int]] = [[15] * width for _ in range(height)]
-        self._visited: list[list[bool]] = [
-            [False] * width for _ in range(height)
-        ]
-        self._solid: set[tuple[int, int]] = set()
-
         self.entry: tuple[int, int] = (0, 0)
         self.exit_: tuple[int, int] = (width - 1, height - 1)
+        self.grid: list[list[int]] = [
+            [15] * width for _ in range(height)
+        ]
+        self._solid: set[tuple[int, int]] = set()
 
     def generate(
         self,
         entry: tuple[int, int] = (0, 0),
         exit_: tuple[int, int] | None = None,
     ) -> None:
-        """Carve walls in place to build the maze."""
         if exit_ is None:
             exit_ = (self.width - 1, self.height - 1)
-        self._validate_endpoints(entry, exit_)
+        self._check_endpoints(entry, exit_)
+        self.entry, self.exit_ = entry, exit_
 
-        self.entry = entry
-        self.exit_ = exit_
+        # reset (so generate() can be called repeatedly)
+        self.grid = [[15] * self.width for _ in range(self.height)]
+        self._solid.clear()
+        self.has_42 = False
 
         random.seed(self.seed)
         self._embed_42()
 
-        # Pre-mark stencil cells as visited so the carver skips them.
-        for sx, sy in self._solid:
-            self._visited[sy][sx] = True
-
-        self._carve(entry[0], entry[1])
+        visited = [[False] * self.width for _ in range(self.height)]
+        for x, y in self._solid:
+            visited[y][x] = True
+        self._carve(entry[0], entry[1], visited)
 
         if not self.perfect:
             self._add_loops()
-
-        self._restore_solid_cells()
+        self._seal_42()
 
     def solve(
         self,
         entry: tuple[int, int],
         exit_: tuple[int, int],
     ) -> list[str] | None:
-        """Shortest path as N/E/S/W letters, [] if same, None if none."""
-        self._validate_endpoints(entry, exit_, allow_equal=True)
+        self._check_endpoints(entry, exit_, allow_equal=True)
         if entry == exit_:
             return []
 
-        letter = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
         parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
-        queue: deque[tuple[int, int]] = deque([entry])
         seen = {entry}
-        found = False
-
-        while queue:
-            cx, cy = queue.popleft()
-            if (cx, cy) == exit_:
-                found = True
+        q: deque[tuple[int, int]] = deque([entry])
+        while q:
+            x, y = q.popleft()
+            if (x, y) == exit_:
                 break
-            for dx, dy, wall, _ in DIRECTIONS:
-                nx, ny = cx + dx, cy + dy
-                if (
-                    0 <= nx < self.width
-                    and 0 <= ny < self.height
-                    and (nx, ny) not in seen
-                    and not (self.grid[cy][cx] & wall)
-                ):
-                    seen.add((nx, ny))
-                    parent[(nx, ny)] = ((cx, cy), letter[(dx, dy)])
-                    queue.append((nx, ny))
-
-        if not found:
+            for dx, dy, wall, _ in DIRS:
+                nx, ny = x + dx, y + dy
+                if not (0 <= nx < self.width and 0 <= ny < self.height):
+                    continue
+                if (nx, ny) in seen or self.grid[y][x] & wall:
+                    continue
+                seen.add((nx, ny))
+                parent[(nx, ny)] = ((x, y), LETTER[(dx, dy)])
+                q.append((nx, ny))
+        else:
             return None
 
-        # Walk parent pointers back from the goal to rebuild the path.
         path: list[str] = []
         cur = exit_
         while cur != entry:
@@ -173,29 +126,9 @@ class MazeGenerator:
         return path
 
     def to_hex_string(self) -> str:
-        """Render the grid as one row per line of uppercase hex digits."""
         return "\n".join(
             "".join(format(c, "x").upper() for c in row) for row in self.grid
         )
-
-    def to_cells(self) -> list[list[Cell]]:
-        """Convert the bitmask grid to a 2D list of Cell objects."""
-        out: list[list[Cell]] = []
-        for y in range(self.height):
-            row: list[Cell] = []
-            for x in range(self.width):
-                v = self.grid[y][x]
-                row.append(
-                    Cell(
-                        north=bool(v & NORTH),
-                        east=bool(v & EAST),
-                        south=bool(v & SOUTH),
-                        west=bool(v & WEST),
-                        is_42=(x, y) in self._solid,
-                    )
-                )
-            out.append(row)
-        return out
 
     def export_to_file(
         self,
@@ -204,19 +137,15 @@ class MazeGenerator:
         exit_: tuple[int, int],
         path: list[str] | None,
     ) -> None:
-        """Write subject-format output (grid, blank, entry, exit, path)."""
-        path_str = "".join(path) if path else ""
-        content = (
-            f"{self.to_hex_string()}\n"
-            f"\n"
-            f"{entry[0]},{entry[1]}\n"
-            f"{exit_[0]},{exit_[1]}\n"
-            f"{path_str}\n"
-        )
-        with open(filename, "w") as fh:
-            fh.write(content)
+        body = "".join(path) if path else ""
+        with open(filename, "w") as f:
+            f.write(self.to_hex_string())
+            f.write(f"\n\n{entry[0]},{entry[1]}\n")
+            f.write(f"{exit_[0]},{exit_[1]}\n{body}\n")
 
-    def _validate_endpoints(
+    # ----- helpers -----
+
+    def _check_endpoints(
         self,
         entry: tuple[int, int],
         exit_: tuple[int, int],
@@ -225,171 +154,132 @@ class MazeGenerator:
         for label, (x, y) in (("entry", entry), ("exit", exit_)):
             if not (0 <= x < self.width and 0 <= y < self.height):
                 raise ValueError(
-                    f"{label} {(x, y)} is outside the maze "
-                    f"(grid is {self.width}x{self.height})."
+                    f"{label} {(x, y)} outside "
+                    f"{self.width}x{self.height} grid"
                 )
         if not allow_equal and entry == exit_:
-            raise ValueError(
-                f"entry and exit must differ; both are {entry}."
-            )
+            raise ValueError(f"entry and exit must differ ({entry})")
 
     def _embed_42(self) -> None:
-        # Stencil needs a 2-cell margin on every side to look right.
-        min_w = PATTERN_W + 4
-        min_h = PATTERN_H + 4
+        min_w, min_h = PATTERN_W + 4, PATTERN_H + 4
         if self.width < min_w or self.height < min_h:
             print(
-                f"Error: maze too small to embed the '42' pattern "
+                f"Error: maze too small to embed '42' "
                 f"(need at least {min_w}x{min_h}).",
                 file=sys.stderr,
             )
             return
-
         ox = (self.width - PATTERN_W) // 2
         oy = (self.height - PATTERN_H) // 2
         for r in range(PATTERN_H):
             for c in range(PATTERN_W):
-                if PATTERN_42[r][c]:
-                    cx, cy = ox + c, oy + r
-                    if (cx, cy) != self.entry and (cx, cy) != self.exit_:
-                        self._solid.add((cx, cy))
+                if not PATTERN[r][c]:
+                    continue
+                p = (ox + c, oy + r)
+                if p != self.entry and p != self.exit_:
+                    self._solid.add(p)
         self.has_42 = True
 
-    def _carve(self, sx: int, sy: int) -> None:
-        # Iterative DFS to avoid Python's recursion limit on large mazes.
-        self._visited[sy][sx] = True
-        stack: list[tuple[int, int]] = [(sx, sy)]
-
+    def _carve(
+        self, sx: int, sy: int, visited: list[list[bool]]
+    ) -> None:
+        visited[sy][sx] = True
+        stack = [(sx, sy)]
         while stack:
-            cx, cy = stack[-1]
-            candidates: list[tuple[int, int, int, int]] = []
-            for dx, dy, my_wall, nbr_wall in DIRECTIONS:
-                nx, ny = cx + dx, cy + dy
-                if (
-                    0 <= nx < self.width
-                    and 0 <= ny < self.height
-                    and not self._visited[ny][nx]
-                    and (nx, ny) not in self._solid
-                ):
-                    candidates.append((nx, ny, my_wall, nbr_wall))
-
-            if candidates:
-                nx, ny, my_wall, nbr_wall = random.choice(candidates)
-                # Knock both bits down so the two sides agree.
-                self.grid[cy][cx] &= ~my_wall
-                self.grid[ny][nx] &= ~nbr_wall
-                self._visited[ny][nx] = True
-                stack.append((nx, ny))
-            else:
+            x, y = stack[-1]
+            cands = []
+            for dx, dy, mine, theirs in DIRS:
+                nx, ny = x + dx, y + dy
+                if not (0 <= nx < self.width and 0 <= ny < self.height):
+                    continue
+                if visited[ny][nx] or (nx, ny) in self._solid:
+                    continue
+                cands.append((nx, ny, mine, theirs))
+            if not cands:
                 stack.pop()
+                continue
+            nx, ny, mine, theirs = random.choice(cands)
+            self.grid[y][x] &= ~mine
+            self.grid[ny][nx] &= ~theirs
+            visited[ny][nx] = True
+            stack.append((nx, ny))
 
     def _add_loops(self) -> None:
-        # Open ~1/8 of the internal walls without creating any 3x3 open block.
-        target = max(1, (self.width * self.height) // 8)
-        added = 0
-        attempts = 0
-        while added < target and attempts < target * 20:
-            attempts += 1
+        target = max(1, self.width * self.height // 8)
+        added = tries = 0
+        while added < target and tries < target * 20:
+            tries += 1
             if random.random() < 0.5:
-                if self._try_open_east():
+                if self._open_east():
                     added += 1
-            elif self._try_open_south():
-                added += 1
+            else:
+                if self._open_south():
+                    added += 1
 
-    def _try_open_east(self) -> bool:
+    def _open_east(self) -> bool:
         if self.width < 2:
             return False
         x = random.randint(0, self.width - 2)
         y = random.randint(0, self.height - 1)
         if (x, y) in self._solid or (x + 1, y) in self._solid:
             return False
-        if not (self.grid[y][x] & EAST):
+        if not self.grid[y][x] & EAST:
             return False
-        if self._makes_3x3(x, y, "E"):
+        if self._would_open_3x3(x, y, "E"):
             return False
         self.grid[y][x] &= ~EAST
         self.grid[y][x + 1] &= ~WEST
         return True
 
-    def _try_open_south(self) -> bool:
+    def _open_south(self) -> bool:
         if self.height < 2:
             return False
         x = random.randint(0, self.width - 1)
         y = random.randint(0, self.height - 2)
         if (x, y) in self._solid or (x, y + 1) in self._solid:
             return False
-        if not (self.grid[y][x] & SOUTH):
+        if not self.grid[y][x] & SOUTH:
             return False
-        if self._makes_3x3(x, y, "S"):
+        if self._would_open_3x3(x, y, "S"):
             return False
         self.grid[y][x] &= ~SOUTH
         self.grid[y + 1][x] &= ~NORTH
         return True
 
-    def _makes_3x3(self, x: int, y: int, direction: str) -> bool:
-        # Open the wall tentatively, scan the 3x3 windows that touch it,
-        # then put the wall back.
+    def _would_open_3x3(self, x: int, y: int, direction: str) -> bool:
         if direction == "E":
             self.grid[y][x] &= ~EAST
             self.grid[y][x + 1] &= ~WEST
-            bx_min = max(0, x - 2)
-            bx_max = min(self.width - 3, x + 1)
-            by_min = max(0, y - 2)
-            by_max = min(self.height - 3, y)
+            xs = range(max(0, x - 2), min(self.width - 3, x + 1) + 1)
+            ys = range(max(0, y - 2), min(self.height - 3, y) + 1)
         else:
             self.grid[y][x] &= ~SOUTH
             self.grid[y + 1][x] &= ~NORTH
-            bx_min = max(0, x - 2)
-            bx_max = min(self.width - 3, x)
-            by_min = max(0, y - 2)
-            by_max = min(self.height - 3, y + 1)
-
-        found = False
-        for bx in range(bx_min, bx_max + 1):
-            for by in range(by_min, by_max + 1):
-                if self._all_open_3x3(bx, by):
-                    found = True
-                    break
-            if found:
-                break
-
+            xs = range(max(0, x - 2), min(self.width - 3, x) + 1)
+            ys = range(max(0, y - 2), min(self.height - 3, y + 1) + 1)
+        bad = any(self._all_open(bx, by) for by in ys for bx in xs)
         if direction == "E":
             self.grid[y][x] |= EAST
             self.grid[y][x + 1] |= WEST
         else:
             self.grid[y][x] |= SOUTH
             self.grid[y + 1][x] |= NORTH
-        return found
+        return bad
 
-    def _all_open_3x3(self, x: int, y: int) -> bool:
+    def _all_open(self, x: int, y: int) -> bool:
         for cy in range(y, y + 3):
             for cx in range(x, x + 3):
                 v = self.grid[cy][cx]
-                if cx < x + 2 and (v & EAST):
+                if cx < x + 2 and v & EAST:
                     return False
-                if cy < y + 2 and (v & SOUTH):
+                if cy < y + 2 and v & SOUTH:
                     return False
         return True
 
-    def _restore_solid_cells(self) -> None:
-        # Defensive: re-close every wall around a stencil cell after carving.
-        for sx, sy in self._solid:
-            self.grid[sy][sx] = 15
-            for dx, dy, _, nbr_wall in DIRECTIONS:
-                nx, ny = sx + dx, sy + dy
+    def _seal_42(self) -> None:
+        for x, y in self._solid:
+            self.grid[y][x] = 15
+            for dx, dy, _, theirs in DIRS:
+                nx, ny = x + dx, y + dy
                 if 0 <= nx < self.width and 0 <= ny < self.height:
-                    self.grid[ny][nx] |= nbr_wall
-
-
-__all__ = [
-    "Cell",
-    "DIRECTIONS",
-    "EAST",
-    "MazeGenerator",
-    "NORTH",
-    "PATTERN_42",
-    "PATTERN_H",
-    "PATTERN_W",
-    "SOUTH",
-    "WEST",
-]
+                    self.grid[ny][nx] |= theirs

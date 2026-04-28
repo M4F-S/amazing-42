@@ -5,13 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mazegen"
 version = "1.0.1"
-description = "Maze generator with DFS backtracker, BFS solver, and a '42' stencil."
+description = "Maze generator with an embedded '42' stencil and BFS solver."
 readme = "mazegen/README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [
-    { name = "M4F-S" },
-]
+authors = [{ name = "mfathy" }, { name = "klavashc" }]
 keywords = ["maze", "generator", "backtracker", "42"]
 classifiers = [
     "Programming Language :: Python :: 3",
